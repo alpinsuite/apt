@@ -47,8 +47,10 @@ all; the package name and architecture are read from the `.deb` itself.
 ## The key
 
 `APT_GPG_PRIVATE_KEY` (ASCII-armoured) and `APT_GPG_PASSPHRASE` are secrets of
-this repository and of nothing else. Until they are set the workflow tests the
-build and deploys nothing, because apt refuses an unsigned repository.
+this repository. Until they are set the workflow tests the build and deploys
+nothing, because apt refuses an unsigned repository. An application needs them
+only if it also signs the `SHA256SUMS` of its releases, as Paint does; nothing
+about publishing to apt requires it.
 
 Every installed machine trusts this key by file, in `/etc/apt/keyrings`. If it
 is lost, every user has to fetch a new keyring by hand, so:
