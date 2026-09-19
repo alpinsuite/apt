@@ -5,10 +5,10 @@ The signed APT repository for every Buache Systems application: one key, one
 
 ```bash
 sudo install -d -m 0755 /etc/apt/keyrings
-curl -fsSL https://alpinsuite.github.io/apt/buache-systems-archive-keyring.gpg \
+curl -fsSL https://apt.buache.systems/buache-systems-archive-keyring.gpg \
   | sudo tee /etc/apt/keyrings/buache-systems.gpg > /dev/null
 sudo curl -fsSL -o /etc/apt/sources.list.d/buache-systems.sources \
-  https://alpinsuite.github.io/apt/buache-systems.sources
+  https://apt.buache.systems/buache-systems.sources
 sudo apt update
 ```
 
@@ -67,13 +67,10 @@ is lost, every user has to fetch a new keyring by hand, so:
 one thing here that is expensive to change: every machine that already
 installed the old file keeps asking the old address.
 
-It defaults to `https://alpinsuite.github.io/apt`. Before the first public
-announcement, move it to a name the project owns:
-
-1. DNS: `apt.buache.systems` `CNAME` `alpinsuite.github.io.`
-2. Settings → Pages → Custom domain → `apt.buache.systems`, then Enforce HTTPS.
-3. Settings → Variables → Actions → `APT_BASE_URL` = `https://apt.buache.systems`
-4. Run the workflow, and change the URLs at the top of this file.
+It is `https://apt.buache.systems`: a `CNAME` to `alpinsuite.github.io.`, set as
+the Pages custom domain with HTTPS enforced, and as the `APT_BASE_URL`
+repository variable, which is what the workflow reads. Without the variable the
+build falls back to `https://alpinsuite.github.io/apt`.
 
 After that the hosting can move anywhere that serves static files without
 anyone's machine noticing.
