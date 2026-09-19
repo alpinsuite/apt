@@ -1,0 +1,98 @@
+name: Publish APT repository
+
+# Rebuilds the repository from the .debs on each application's Releases page and
+# deploys it to GitHub Pages. It pulls rather than being pushed to: no
+# application holds the signing key, and none needs a token for this repository.
+#
+# A new release reaches apt within the hour on its own. To publish it now:
+#   gh workflow run publish.yml -R alpinsuite/apt
+
+on:
+  schedule:
+    - cron: "17 * * * *"
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deployment at a time. Queue rather than cancel: leaving the previous
+# index live is fine, but interrupting an upload halfway is not.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+env:
+  # The address users' .sources files point at. Set the APT_BASE_URL repository
+  # variable once the custom domain resolves; see the README before changing it
+  # a second time.
+  BASE_URL: ${{ vars.APT_BASE_URL || 'https://alpinsuite.github.io/apt' }}
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Collect the packages
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          bash collect_debs.sh debs > manifest.txt
+          cat manifest.txt
+          if [ ! -s manifest.txt ]; then
+            echo "::error::No .deb found on any release of any repository in apps.txt."
+            exit 1
+          fi
+
+      # The hourly run has nothing to do unless a release appeared, changed or
+      # went away. A push or a manual run always deploys, because then it is
+      # the scripts that changed and the manifest cannot know.
+      - name: Decide whether anything changed
+        id: changed
+        env:
+          HAVE_KEY: ${{ secrets.APT_GPG_PRIVATE_KEY != '' }}
+        run: |
+          if [ "$HAVE_KEY" != "true" ]; then
+            echo "::warning::APT_GPG_PRIVATE_KEY is not set. apt refuses an unsigned repository, so nothing is deployed."
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event_name }}" = "schedule" ] \
+               && curl -fsS "$BASE_URL/manifest.txt" | diff -q - manifest.txt > /dev/null; then
+            echo "The live repository already holds exactly these packages."
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install apt-utils
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq apt-utils
+
+      # Runs whether or not this run deploys, so a broken script is red on the
+      # push that broke it and not an hour after the next release.
+      - name: Check apt accepts the result
+        run: bash test_install.sh debs/*.deb
+
+      - name: Build and sign
+        if: steps.changed.outputs.deploy == 'true'
+        env:
+          APT_GPG_PRIVATE_KEY: ${{ secrets.APT_GPG_PRIVATE_KEY }}
+          APT_GPG_PASSPHRASE: ${{ secrets.APT_GPG_PASSPHRASE }}
+        run: |
+          bash build_repo.sh public debs/*.deb
+          cp manifest.txt public/
+          test -s public/dists/stable/InRelease
+
+      - uses: actions/upload-pages-artifact@v4
+        if: steps.changed.outputs.deploy == 'true'
+        with:
+          path: public
+
+      - id: deployment
+        if: steps.changed.outputs.deploy == 'true'
+        uses: actions/deploy-pages@v4

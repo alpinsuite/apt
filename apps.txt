@@ -1,0 +1,7 @@
+# One GitHub repository per line. Every .deb attached to the newest few releases
+# of each is published in the APT repository.
+#
+# A repository belongs here once it has a public release with a .deb on it.
+# Adding the line is the whole of "joining the suite repository": the
+# application's own release workflow does not change and holds no key.
+alpinsuite/paint
