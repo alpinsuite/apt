@@ -5,3 +5,4 @@
 # Adding the line is the whole of "joining the suite repository": the
 # application's own release workflow does not change and holds no key.
 alpinsuite/paint
+alpinsuite/shrink
