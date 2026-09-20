@@ -99,15 +99,20 @@ sed -i '0,/^MD5Sum:/s//Acquire-By-Hash: yes\nMD5Sum:/' "$RELEASE_TMP"
 grep -q '^Acquire-By-Hash: yes$' "$RELEASE_TMP"
 mv "$RELEASE_TMP" "dists/$SUITE/Release"
 
+# apt asks by the strongest hash Release lists, which is SHA512; SHA256 is there
+# for a client old enough not to. The install test found this out the hard way.
 by_hash() {
-  local file="$1" dir
-  dir="$(dirname "$file")/by-hash/SHA256"
-  mkdir -p "$dir"
-  cp -f "$file" "$dir/$(sha256sum "$file" | cut -d' ' -f1)"
+  local file="$1" into="$2" algo dir
+  for algo in 256 512; do
+    dir="$into/by-hash/SHA$algo"
+    mkdir -p "$dir"
+    cp -f "$file" "$dir/$("sha${algo}sum" "$file" | cut -d' ' -f1)"
+  done
 }
 for arch in $ARCHITECTURES; do
-  by_hash "dists/$SUITE/$COMPONENT/binary-$arch/Packages"
-  by_hash "dists/$SUITE/$COMPONENT/binary-$arch/Packages.gz"
+  index="dists/$SUITE/$COMPONENT/binary-$arch"
+  by_hash "$index/Packages" "$index"
+  by_hash "$index/Packages.gz" "$index"
 done
 
 # The generation being replaced stays reachable by hash too. The tree is
@@ -120,8 +125,7 @@ if [[ -n "${PREVIOUS_URL:-}" ]]; then
       previous="$(mktemp)"
       if curl -fsSL -o "$previous" \
            "$PREVIOUS_URL/dists/$SUITE/$COMPONENT/binary-$arch/$name"; then
-        dir="dists/$SUITE/$COMPONENT/binary-$arch/by-hash/SHA256"
-        cp -f "$previous" "$dir/$(sha256sum "$previous" | cut -d' ' -f1)"
+        by_hash "$previous" "dists/$SUITE/$COMPONENT/binary-$arch"
       fi
       rm -f "$previous"
     done

@@ -52,7 +52,7 @@ docker run --rm --network host debian:12-slim bash -euxc "
   # has to be the by-hash one: that is what keeps a CDN serving two
   # generations at once from breaking apt update.
   apt-get update -o Debug::Acquire::http=true 2>&1 | tee /tmp/update.log
-  grep -q "by-hash/SHA256/" /tmp/update.log
+  grep -q "by-hash/SHA" /tmp/update.log
   apt-cache policy $PACKAGES
   # -s resolves the dependencies against Debian without installing a desktop.
   apt-get install -s $PACKAGES
