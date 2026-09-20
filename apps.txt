@@ -6,3 +6,4 @@
 # application's own release workflow does not change and holds no key.
 alpinsuite/paint
 alpinsuite/shrink
+alpinsuite/snipper
