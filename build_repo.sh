@@ -83,8 +83,50 @@ CONF
 # placeholder into its own index.
 RELEASE_TMP="$(mktemp)"
 apt-ftparchive -c "$CONF" release "dists/$SUITE" > "$RELEASE_TMP"
-mv "$RELEASE_TMP" "dists/$SUITE/Release"
 rm -f "$CONF"
+
+# Acquire-By-Hash, because this is served from a CDN. For ten minutes after a
+# publish an edge may hold the new InRelease and the old Packages, or the other
+# way round, and apt rightly refuses an index whose hash is not the signed one:
+# "Hash Sum mismatch", for every user who updates in that window. With this
+# field apt asks for the index by its hash instead of by its name, so whichever
+# InRelease a client was given, the Packages it names is a different URL from
+# the other generation's and cannot be confused with it.
+#
+# The field goes in the header, before the hash lists; the by-hash copies are
+# made after Release is written so that apt-ftparchive does not index them.
+sed -i '0,/^MD5Sum:/s//Acquire-By-Hash: yes\nMD5Sum:/' "$RELEASE_TMP"
+grep -q '^Acquire-By-Hash: yes$' "$RELEASE_TMP"
+mv "$RELEASE_TMP" "dists/$SUITE/Release"
+
+by_hash() {
+  local file="$1" dir
+  dir="$(dirname "$file")/by-hash/SHA256"
+  mkdir -p "$dir"
+  cp -f "$file" "$dir/$(sha256sum "$file" | cut -d' ' -f1)"
+}
+for arch in $ARCHITECTURES; do
+  by_hash "dists/$SUITE/$COMPONENT/binary-$arch/Packages"
+  by_hash "dists/$SUITE/$COMPONENT/binary-$arch/Packages.gz"
+done
+
+# The generation being replaced stays reachable by hash too. The tree is
+# rebuilt from nothing each time, so without this the index a stale InRelease
+# names would have just been deleted — which is the case this exists for.
+# PREVIOUS_URL is the live repository; absent on a first publish and in tests.
+if [[ -n "${PREVIOUS_URL:-}" ]]; then
+  for arch in $ARCHITECTURES; do
+    for name in Packages Packages.gz; do
+      previous="$(mktemp)"
+      if curl -fsSL -o "$previous" \
+           "$PREVIOUS_URL/dists/$SUITE/$COMPONENT/binary-$arch/$name"; then
+        dir="dists/$SUITE/$COMPONENT/binary-$arch/by-hash/SHA256"
+        cp -f "$previous" "$dir/$(sha256sum "$previous" | cut -d' ' -f1)"
+      fi
+      rm -f "$previous"
+    done
+  done
+fi
 
 if [[ -n "${APT_GPG_PRIVATE_KEY:-}" ]]; then
   GNUPGHOME="$(mktemp -d)"

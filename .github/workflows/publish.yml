@@ -83,6 +83,9 @@ jobs:
         env:
           APT_GPG_PRIVATE_KEY: ${{ secrets.APT_GPG_PRIVATE_KEY }}
           APT_GPG_PASSPHRASE: ${{ secrets.APT_GPG_PASSPHRASE }}
+          # The index being replaced stays reachable by its hash; see
+          # build_repo.sh. Absent on a first publish, which it shrugs off.
+          PREVIOUS_URL: ${{ env.BASE_URL }}
         run: |
           bash build_repo.sh public debs/*.deb
           cp manifest.txt public/

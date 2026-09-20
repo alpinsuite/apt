@@ -25,6 +25,11 @@ every push here, `.github/workflows/publish.yml`:
 3. builds it again with the real key (`build_repo.sh`) and deploys the result to
    GitHub Pages.
 
+The index is published with `Acquire-By-Hash`, and the generation being
+replaced stays reachable by its hash. GitHub Pages is a CDN with a ten-minute
+cache: without this, an edge holding the new `InRelease` and the old `Packages`
+gives every `apt update` in that window a "Hash Sum mismatch".
+
 The whole tree is rebuilt from nothing each time, so the Releases pages are the
 only source of truth. Deleting a release removes it from apt at the next run.
 The hourly run compares `manifest.txt` with the live one and deploys only when

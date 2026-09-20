@@ -48,7 +48,11 @@ docker run --rm --network host debian:12-slim bash -euxc "
     > /etc/apt/keyrings/buache-systems.gpg
   curl -fsSL -o /etc/apt/sources.list.d/buache-systems.sources \
     http://localhost:$PORT/buache-systems.sources
-  apt-get update
+  # Debug output, so the log shows which URL the index was fetched from. It
+  # has to be the by-hash one: that is what keeps a CDN serving two
+  # generations at once from breaking apt update.
+  apt-get update -o Debug::Acquire::http=true 2>&1 | tee /tmp/update.log
+  grep -q "by-hash/SHA256/" /tmp/update.log
   apt-cache policy $PACKAGES
   # -s resolves the dependencies against Debian without installing a desktop.
   apt-get install -s $PACKAGES
